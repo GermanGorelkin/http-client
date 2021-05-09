@@ -112,32 +112,23 @@ func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) (*htt
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
-	defer func() {
-		if closeErr := resp.Body.Close(); err == nil {
-			err = closeErr
-		}
-	}()
-
-	err = CheckResponse(resp)
-	if err != nil {
+	if err = CheckResponse(resp); err != nil {
 		return resp, err
 	}
 
-	if v != nil {
-		if w, ok := v.(io.Writer); ok {
-			_, err = io.Copy(w, resp.Body)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			decErr := json.NewDecoder(resp.Body).Decode(v)
-			if decErr == io.EOF {
-				decErr = nil // ignore EOF errors caused by empty response body
-			}
-			if decErr != nil {
-				err = decErr
-			}
+	switch v := v.(type) {
+	case nil:
+	case io.Writer:
+		_, err = io.Copy(v, resp.Body)
+	default:
+		decErr := json.NewDecoder(resp.Body).Decode(v)
+		if decErr == io.EOF {
+			decErr = nil // ignore EOF errors caused by empty response body
+		}
+		if decErr != nil {
+			err = decErr
 		}
 	}
 
