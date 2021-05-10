@@ -28,15 +28,20 @@ type Client struct {
 	Authorization string
 }
 
+type ClientOpt func(*Client) error
+
 func NewClient(httpClient *http.Client) *Client {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
+	if httpClient.Transport == nil {
+		httpClient.Transport = interTransport{transport: http.DefaultTransport}
+	} else {
+		httpClient.Transport = interTransport{transport: httpClient.Transport}
+	}
 
 	return &Client{client: httpClient, UserAgent: userAgent}
 }
-
-type ClientOpt func(*Client) error
 
 func New(httpClient *http.Client, opts ...ClientOpt) (*Client, error) {
 	c := NewClient(httpClient)
@@ -71,6 +76,18 @@ func SetUserAgent(ua string) ClientOpt {
 func SetAuthorization(token, tokenType string) ClientOpt {
 	return func(c *Client) error {
 		c.Authorization = fmt.Sprintf("%s %s", tokenType, token)
+		return nil
+	}
+}
+
+func SetInterceptor(inter Interceptor) ClientOpt {
+	return func(c *Client) error {
+		tr, ok := c.client.Transport.(interTransport)
+		if !ok {
+			return fmt.Errorf("error")
+		}
+		tr.interceptors = append(tr.interceptors, inter)
+		tr.unitedInterceptor = uniteInterceptors(tr.interceptors)
 		return nil
 	}
 }
