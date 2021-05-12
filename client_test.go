@@ -6,11 +6,42 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"path"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestClient_NewRequest_GET(t *testing.T) {
+	userAgent := "http-client"
+	token := "token bG9sOnNlY3VyZQ"
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, userAgent, r.Header["User-Agent"][0])
+		assert.Equal(t, token, r.Header["Authorization"][0])
+
+		fmt.Fprintln(w, `{"name":"Name"}`)
+	}))
+	defer ts.Close()
+
+	client, err := New(nil,
+		SetBaseURL(ts.URL),
+		SetUserAgent(userAgent),
+		SetAuthorization("bG9sOnNlY3VyZQ", "token"))
+	assert.NoError(t, err)
+
+	req, err := client.NewRequest("GET", "user", nil)
+	assert.NoError(t, err)
+	assert.Equal(t, path.Join(ts.URL, "user"), path.Join(ts.URL, req.URL.Path))
+	assert.Equal(t, req.Method, "GET")
+	assert.Nil(t, req.Body)
+
+	_, err = http.DefaultClient.Do(req)
+	assert.NoError(t, err)
+
+	test_client(t, client)
+}
 
 func Test_New(t *testing.T) {
 	client, err := New(nil,
