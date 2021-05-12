@@ -2,7 +2,11 @@ package http_client
 
 import (
 	"bytes"
+	"fmt"
+	"io"
+	"log"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -51,24 +55,31 @@ func Test_uniteInterceptors(t *testing.T) {
 	assert.Equal(t, got.String(), want.String())
 }
 
-// t.Run("without inter", func(t *testing.T) {
-// 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		fmt.Fprintln(w, "Hello, client")
-// 	}))
-// 	defer ts.Close()
+func Test_DumpInterceptor(t *testing.T) {
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	log.SetFlags(0)
 
-// 	client := http.Client{
-// 		Transport: interTransport{transport: http.DefaultTransport},
-// 	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, `{"name":"Name"}`)
+	}))
+	defer ts.Close()
 
-// 	res, err := client.Get(ts.URL)
-// 	assert.NoError(t, err)
+	tr := interTransport{transport: http.DefaultTransport}
+	tr.interceptors = append(tr.interceptors, DumpInterceptor)
+	tr.unitedInterceptor = uniteInterceptors(tr.interceptors)
 
-// 	got, err := io.ReadAll(res.Body)
-// 	assert.NoError(t, err)
-// 	res.Body.Close()
+	client := http.Client{Transport: tr}
 
-// 	want := "Hello, client\n"
-// 	assert.Equal(t, want, string(got))
+	res, err := client.Get(ts.URL)
+	assert.NoError(t, err)
 
-// })
+	got, err := io.ReadAll(res.Body)
+	assert.NoError(t, err)
+	res.Body.Close()
+
+	want := `{"name":"Name"}` + "\n"
+	assert.Equal(t, want, string(got))
+
+	assert.True(t, buf.Len() > 0)
+}
