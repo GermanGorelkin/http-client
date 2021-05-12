@@ -1,9 +1,11 @@
 package http_client
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +15,31 @@ import (
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestClient_Do(t *testing.T) {
+
+}
+
+func TestCheckResponse(t *testing.T) {
+	t.Run("status 200", func(t *testing.T) {
+		res := &http.Response{
+			StatusCode: 200,
+		}
+		assert.NoError(t, CheckResponse(res))
+	})
+
+	t.Run("status 400", func(t *testing.T) {
+		res := &http.Response{
+			StatusCode: 400,
+			Body:       ioutil.NopCloser(bytes.NewBufferString("test msg")),
+		}
+		err := CheckResponse(res)
+		assert.NotNil(t, err)
+		errRes, ok := err.(*ErrorResponse)
+		assert.Truef(t, ok, "%q is not *ErrorResponse", err)
+		assert.Equal(t, "test msg", errRes.Message)
+	})
+}
 
 func TestClient_NewRequest_POST(t *testing.T) {
 	userAgent := "http-client"
