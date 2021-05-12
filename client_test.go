@@ -2,6 +2,7 @@ package http_client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,8 +17,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClient_Do(t *testing.T) {
+func TestClient_Do_Status400(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer ts.Close()
 
+	client := NewClient(nil)
+
+	req, err := http.NewRequest("GET", ts.URL, nil)
+	assert.NoError(t, err)
+	_, err = client.Do(context.Background(), req, nil)
+	assert.NotNil(t, err)
 }
 
 func TestCheckResponse(t *testing.T) {
