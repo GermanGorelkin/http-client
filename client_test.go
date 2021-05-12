@@ -69,6 +69,21 @@ func Test_NewClient(t *testing.T) {
 	})
 }
 
+func TestClient_AddInterceptor(t *testing.T) {
+	client := NewClient(nil)
+
+	var got string
+	err := client.AddInterceptor(func(req *http.Request, handler Handler) (*http.Response, error) {
+		got = "AddInterceptor"
+		return handler(req)
+	})
+	assert.NoError(t, err)
+
+	test_client(t, client)
+
+	assert.Equal(t, "AddInterceptor", got)
+}
+
 func test_client(t *testing.T, client *Client) {
 	t.Helper()
 
