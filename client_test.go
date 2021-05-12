@@ -3,9 +3,11 @@ package http_client
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -23,6 +25,31 @@ func Test_NewClient(t *testing.T) {
 		assert.Truef(t, ok, "Transport is not interTransport")
 
 		assert.Equal(t, http.DefaultTransport, tr.transport)
+	})
+	t.Run("custom client and transport", func(t *testing.T) {
+		custTr := &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   10 * time.Second,
+				KeepAlive: 20 * time.Second,
+			}).DialContext,
+			MaxIdleConnsPerHost: 100,
+		}
+		custClient := &http.Client{
+			Transport: custTr,
+			Timeout:   5 * time.Second,
+		}
+
+		client := NewClient(custClient)
+
+		test_client(t, client)
+
+		assert.Equal(t, custClient, client.client)
+		assert.NotNil(t, client.client.Transport)
+
+		tr, ok := client.client.Transport.(interTransport)
+		assert.Truef(t, ok, "Transport is not interTransport")
+
+		assert.Equal(t, custTr, tr.transport)
 	})
 }
 
