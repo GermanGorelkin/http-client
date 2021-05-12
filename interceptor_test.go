@@ -65,9 +65,8 @@ func Test_DumpInterceptor(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	tr := interTransport{transport: http.DefaultTransport}
-	tr.interceptors = append(tr.interceptors, DumpInterceptor)
-	tr.unitedInterceptor = uniteInterceptors(tr.interceptors)
+	tr := &interTransport{transport: http.DefaultTransport}
+	tr.AddInterceptor(DumpInterceptor)
 
 	client := http.Client{Transport: tr}
 

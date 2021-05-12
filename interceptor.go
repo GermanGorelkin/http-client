@@ -21,7 +21,12 @@ type interTransport struct {
 	unitedInterceptor Interceptor
 }
 
-func (t interTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+func (t *interTransport) AddInterceptor(inter Interceptor) {
+	t.interceptors = append(t.interceptors, inter)
+	t.unitedInterceptor = uniteInterceptors(t.interceptors)
+}
+
+func (t *interTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if t.unitedInterceptor == nil {
 		return t.transport.RoundTrip(r)
 	}

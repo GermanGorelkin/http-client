@@ -32,12 +32,12 @@ type ClientOpt func(*Client) error
 
 func NewClient(httpClient *http.Client) *Client {
 	if httpClient == nil {
-		httpClient = http.DefaultClient
+		httpClient = &http.Client{}
 	}
 	if httpClient.Transport == nil {
-		httpClient.Transport = interTransport{transport: http.DefaultTransport}
+		httpClient.Transport = &interTransport{transport: http.DefaultTransport}
 	} else {
-		httpClient.Transport = interTransport{transport: httpClient.Transport}
+		httpClient.Transport = &interTransport{transport: httpClient.Transport}
 	}
 
 	return &Client{client: httpClient, UserAgent: userAgent}
@@ -68,7 +68,7 @@ func SetBaseURL(bu string) ClientOpt {
 
 func SetUserAgent(ua string) ClientOpt {
 	return func(c *Client) error {
-		c.UserAgent = fmt.Sprintf("%s %s", ua, c.UserAgent)
+		c.UserAgent = ua
 		return nil
 	}
 }
@@ -82,14 +82,22 @@ func SetAuthorization(token, tokenType string) ClientOpt {
 
 func SetInterceptor(inter Interceptor) ClientOpt {
 	return func(c *Client) error {
-		tr, ok := c.client.Transport.(interTransport)
+		tr, ok := c.client.Transport.(*interTransport)
 		if !ok {
 			return fmt.Errorf("error")
 		}
-		tr.interceptors = append(tr.interceptors, inter)
-		tr.unitedInterceptor = uniteInterceptors(tr.interceptors)
+		tr.AddInterceptor(inter)
 		return nil
 	}
+}
+
+func (c *Client) AddInterceptor(inter Interceptor) error {
+	tr, ok := c.client.Transport.(*interTransport)
+	if !ok {
+		return fmt.Errorf("error")
+	}
+	tr.AddInterceptor(inter)
+	return nil
 }
 
 func (c *Client) NewRequest(method, urlStr string, body interface{}) (*http.Request, error) {
