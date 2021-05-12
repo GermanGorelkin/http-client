@@ -1,6 +1,7 @@
 package http_client
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +14,47 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestClient_NewRequest_POST(t *testing.T) {
+	userAgent := "http-client"
+	token := "token bG9sOnNlY3VyZQ"
+	user := struct {
+		Name string `json:"name"`
+	}{
+		Name: "testName",
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, userAgent, r.Header["User-Agent"][0])
+		assert.Equal(t, token, r.Header["Authorization"][0])
+		assert.Equal(t, "application/json", r.Header["Content-Type"][0])
+
+		v := struct {
+			Name string `json:"name"`
+		}{}
+		err := json.NewDecoder(r.Body).Decode(&v)
+		assert.NoError(t, err)
+		assert.Equal(t, user, v)
+	}))
+	defer ts.Close()
+
+	client, err := New(nil,
+		SetBaseURL(ts.URL),
+		SetUserAgent(userAgent),
+		SetAuthorization("bG9sOnNlY3VyZQ", "token"))
+	assert.NoError(t, err)
+
+	req, err := client.NewRequest("POST", "user", user)
+	assert.NoError(t, err)
+	assert.Equal(t, path.Join(ts.URL, "user"), path.Join(ts.URL, req.URL.Path))
+	assert.Equal(t, req.Method, "POST")
+	assert.NotNil(t, req.Body)
+
+	_, err = http.DefaultClient.Do(req)
+	assert.NoError(t, err)
+
+	test_client(t, client)
+}
+
 func TestClient_NewRequest_GET(t *testing.T) {
 	userAgent := "http-client"
 	token := "token bG9sOnNlY3VyZQ"
@@ -20,8 +62,6 @@ func TestClient_NewRequest_GET(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, userAgent, r.Header["User-Agent"][0])
 		assert.Equal(t, token, r.Header["Authorization"][0])
-
-		fmt.Fprintln(w, `{"name":"Name"}`)
 	}))
 	defer ts.Close()
 
