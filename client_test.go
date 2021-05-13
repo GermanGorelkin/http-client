@@ -17,6 +17,42 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestClient_Do_Status200(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, `{"name":"Name"}`)
+	}))
+	defer ts.Close()
+
+	client := NewClient(nil)
+
+	t.Run("nil", func(t *testing.T) {
+		req, err := http.NewRequest("POST", ts.URL, nil)
+		assert.NoError(t, err)
+
+		_, err = client.Do(context.Background(), req, nil)
+		assert.Nil(t, err)
+	})
+	t.Run("Writer", func(t *testing.T) {
+		req, err := http.NewRequest("POST", ts.URL, nil)
+		assert.NoError(t, err)
+
+		buf := new(bytes.Buffer)
+		_, err = client.Do(context.Background(), req, buf)
+		assert.Nil(t, err)
+		assert.Equal(t, `{"name":"Name"}`+"\n", buf.String())
+	})
+	t.Run("struct", func(t *testing.T) {
+		req, err := http.NewRequest("POST", ts.URL, nil)
+		assert.NoError(t, err)
+
+		v := &struct {
+			Name string `json:"name"`
+		}{}
+		_, err = client.Do(context.Background(), req, v)
+		assert.Nil(t, err)
+		assert.Equal(t, "Name", v.Name)
+	})
+}
 func TestClient_Do_Status400(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
