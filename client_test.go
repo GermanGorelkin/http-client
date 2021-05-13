@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"path"
 	"testing"
 	"time"
 
@@ -119,9 +118,36 @@ func TestClient_NewRequest_POST(t *testing.T) {
 
 	req, err := client.NewRequest("POST", "user", user)
 	assert.NoError(t, err)
-	assert.Equal(t, path.Join(ts.URL, "user"), path.Join(ts.URL, req.URL.Path))
+	assert.Equal(t, ts.URL+"/user", req.URL.String())
 	assert.Equal(t, req.Method, "POST")
 	assert.NotNil(t, req.Body)
+
+	_, err = http.DefaultClient.Do(req)
+	assert.NoError(t, err)
+
+	test_client(t, client)
+}
+
+func TestClient_NewRequest_WithoutBaseURL(t *testing.T) {
+	userAgent := "http-client"
+	token := "token bG9sOnNlY3VyZQ"
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, userAgent, r.Header["User-Agent"][0])
+		assert.Equal(t, token, r.Header["Authorization"][0])
+	}))
+	defer ts.Close()
+
+	client, err := New(nil,
+		SetUserAgent(userAgent),
+		SetAuthorization("bG9sOnNlY3VyZQ", "token"))
+	assert.NoError(t, err)
+
+	req, err := client.NewRequest("GET", ts.URL+"/user", nil)
+	assert.NoError(t, err)
+	assert.Equal(t, ts.URL+"/user", req.URL.String())
+	assert.Equal(t, req.Method, "GET")
+	assert.Nil(t, req.Body)
 
 	_, err = http.DefaultClient.Do(req)
 	assert.NoError(t, err)
@@ -147,7 +173,7 @@ func TestClient_NewRequest_GET(t *testing.T) {
 
 	req, err := client.NewRequest("GET", "user", nil)
 	assert.NoError(t, err)
-	assert.Equal(t, path.Join(ts.URL, "user"), path.Join(ts.URL, req.URL.Path))
+	assert.Equal(t, ts.URL+"/user", req.URL.String())
 	assert.Equal(t, req.Method, "GET")
 	assert.Nil(t, req.Body)
 

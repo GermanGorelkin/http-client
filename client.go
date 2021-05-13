@@ -100,8 +100,15 @@ func (c *Client) AddInterceptor(inter Interceptor) error {
 	return nil
 }
 
+func (c *Client) parseURL(urlStr string) (*url.URL, error) {
+	if c.BaseURL == nil {
+		return url.ParseRequestURI(urlStr)
+	}
+	return c.BaseURL.Parse(urlStr)
+}
+
 func (c *Client) NewRequest(method, urlStr string, body interface{}) (*http.Request, error) {
-	u, err := c.BaseURL.Parse(urlStr)
+	u, err := c.parseURL(urlStr)
 	if err != nil {
 		return nil, err
 	}
