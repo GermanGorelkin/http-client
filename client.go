@@ -15,12 +15,6 @@ const (
 	userAgent = "http-client"
 )
 
-type ErrorResponse struct {
-	Response  *http.Response
-	Message   string
-	RequestID string
-}
-
 type Client struct {
 	client        *http.Client
 	BaseURL       *url.URL
@@ -54,7 +48,7 @@ func New(httpClient *http.Client, opts ...ClientOpt) (*Client, error) {
 	return c, nil
 }
 
-func SetBaseURL(bu string) ClientOpt {
+func WithBaseURL(bu string) ClientOpt {
 	return func(c *Client) error {
 		u, err := url.Parse(bu)
 		if err != nil {
@@ -66,21 +60,21 @@ func SetBaseURL(bu string) ClientOpt {
 	}
 }
 
-func SetUserAgent(ua string) ClientOpt {
+func WithUserAgent(ua string) ClientOpt {
 	return func(c *Client) error {
 		c.UserAgent = ua
 		return nil
 	}
 }
 
-func SetAuthorization(token, tokenType string) ClientOpt {
+func WithAuthorization(token, tokenType string) ClientOpt {
 	return func(c *Client) error {
 		c.Authorization = fmt.Sprintf("%s %s", tokenType, token)
 		return nil
 	}
 }
 
-func SetInterceptor(inter Interceptor) ClientOpt {
+func WithInterceptor(inter Interceptor) ClientOpt {
 	return func(c *Client) error {
 		tr, ok := c.client.Transport.(*interTransport)
 		if !ok {
@@ -183,6 +177,12 @@ func CheckResponse(r *http.Response) error {
 		errorResponse.Message = string(data)
 	}
 	return errorResponse
+}
+
+type ErrorResponse struct {
+	Response  *http.Response
+	Message   string
+	RequestID string
 }
 
 func (r *ErrorResponse) Error() string {
