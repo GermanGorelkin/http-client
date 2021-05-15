@@ -15,6 +15,32 @@ const (
 	userAgent = "http-client"
 )
 
+func Get(url string, out interface{}) error {
+	c := NewClient(nil)
+	req, err := c.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	_, err = c.Do(context.Background(), req, out)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func Post(url string, in, out interface{}) error {
+	c := NewClient(nil)
+	req, err := c.NewRequest("POST", url, in)
+	if err != nil {
+		return err
+	}
+	_, err = c.Do(context.Background(), req, out)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type Client struct {
 	client        *http.Client
 	BaseURL       *url.URL
@@ -98,11 +124,28 @@ func (c *Client) AddInterceptor(inter Interceptor) error {
 	return nil
 }
 
-func (c *Client) parseURL(urlStr string) (*url.URL, error) {
-	if c.BaseURL == nil {
-		return url.ParseRequestURI(urlStr)
+func (c *Client) Get(url string, out interface{}) error {
+	req, err := c.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
 	}
-	return c.BaseURL.Parse(urlStr)
+	_, err = c.Do(context.Background(), req, out)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Client) Post(url string, in, out interface{}) error {
+	req, err := c.NewRequest("POST", url, in)
+	if err != nil {
+		return err
+	}
+	_, err = c.Do(context.Background(), req, out)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Client) NewRequest(method, urlStr string, body interface{}) (*http.Request, error) {
@@ -135,6 +178,13 @@ func (c *Client) NewRequest(method, urlStr string, body interface{}) (*http.Requ
 		req.Header.Set("Authorization", c.Authorization)
 	}
 	return req, nil
+}
+
+func (c *Client) parseURL(urlStr string) (*url.URL, error) {
+	if c.BaseURL == nil {
+		return url.ParseRequestURI(urlStr)
+	}
+	return c.BaseURL.Parse(urlStr)
 }
 
 func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {

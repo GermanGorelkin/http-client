@@ -16,6 +16,52 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestClient_Post(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := ioutil.ReadAll(r.Body)
+		fmt.Fprintln(w, string(b))
+	}))
+	defer ts.Close()
+
+	cli := NewClient(nil)
+
+	in := struct {
+		Name string `json:"name"`
+	}{
+		Name: "Name",
+	}
+	out := struct {
+		Name string `json:"name"`
+	}{}
+	err := cli.Post(ts.URL, in, &out)
+	assert.NoError(t, err)
+	assert.Equal(t, in, out)
+}
+
+func TestClient_Get(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, `{"name":"Name"}`)
+	}))
+	defer ts.Close()
+
+	cli := NewClient(nil)
+
+	t.Run("out is struct", func(t *testing.T) {
+		user := struct {
+			Name string `json:"name"`
+		}{}
+		err := cli.Get(ts.URL, &user)
+		assert.NoError(t, err)
+		assert.Equal(t, "Name", user.Name)
+	})
+	t.Run("out is Writer", func(t *testing.T) {
+		buf := new(bytes.Buffer)
+		err := cli.Get(ts.URL, buf)
+		assert.NoError(t, err)
+		assert.Equal(t, `{"name":"Name"}`+"\n", buf.String())
+	})
+}
+
 func TestClient_Do_Status200(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, `{"name":"Name"}`)
