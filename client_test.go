@@ -113,7 +113,7 @@ func TestClient_NewRequest_POST(t *testing.T) {
 	client, err := New(nil,
 		WithBaseURL(ts.URL),
 		WithUserAgent(userAgent),
-		WithAuthorization("bG9sOnNlY3VyZQ", "token"))
+		WithAuthorization(token))
 	assert.NoError(t, err)
 
 	req, err := client.NewRequest("POST", "user", user)
@@ -140,7 +140,7 @@ func TestClient_NewRequest_WithoutBaseURL(t *testing.T) {
 
 	client, err := New(nil,
 		WithUserAgent(userAgent),
-		WithAuthorization("bG9sOnNlY3VyZQ", "token"))
+		WithAuthorization(token))
 	assert.NoError(t, err)
 
 	req, err := client.NewRequest("GET", ts.URL+"/user", nil)
@@ -168,7 +168,7 @@ func TestClient_NewRequest_GET(t *testing.T) {
 	client, err := New(nil,
 		WithBaseURL(ts.URL),
 		WithUserAgent(userAgent),
-		WithAuthorization("bG9sOnNlY3VyZQ", "token"))
+		WithAuthorization(token))
 	assert.NoError(t, err)
 
 	req, err := client.NewRequest("GET", "user", nil)
@@ -187,7 +187,7 @@ func Test_New(t *testing.T) {
 	client, err := New(nil,
 		WithBaseURL("https://golang.org/"),
 		WithUserAgent("custome"),
-		WithAuthorization("bG9sOnNlY3VyZQ", "token"),
+		WithAuthorization("token bG9sOnNlY3VyZQ"),
 		WithInterceptor(DefaultInterceptor))
 
 	assert.NoError(t, err)

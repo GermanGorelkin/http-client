@@ -67,9 +67,9 @@ func WithUserAgent(ua string) ClientOpt {
 	}
 }
 
-func WithAuthorization(token, tokenType string) ClientOpt {
+func WithAuthorization(auth string) ClientOpt {
 	return func(c *Client) error {
-		c.Authorization = fmt.Sprintf("%s %s", tokenType, token)
+		c.Authorization = auth
 		return nil
 	}
 }
@@ -83,6 +83,10 @@ func WithInterceptor(inter Interceptor) ClientOpt {
 		tr.AddInterceptor(inter)
 		return nil
 	}
+}
+
+func (c *Client) SetAuthorization(auth string) {
+	c.Authorization = auth
 }
 
 func (c *Client) AddInterceptor(inter Interceptor) error {
