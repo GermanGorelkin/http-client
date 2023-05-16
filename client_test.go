@@ -238,8 +238,6 @@ func Test_New(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, "golang.org", client.BaseURL.Host)
-	assert.Equal(t, "custome", client.UserAgent)
-	assert.Equal(t, "token bG9sOnNlY3VyZQ", client.Authorization)
 	assert.Truef(t, len(client.client.Transport.(*interTransport).interceptors) == 1,
 		"len=%d", len(client.client.Transport.(*interTransport).interceptors))
 

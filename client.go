@@ -42,10 +42,9 @@ func Post(url string, in, out interface{}) error {
 }
 
 type Client struct {
-	client        *http.Client
-	BaseURL       *url.URL
-	UserAgent     string
-	Authorization string
+	client  *http.Client
+	BaseURL *url.URL
+	Headers map[string]string
 }
 
 type ClientOpt func(*Client) error
@@ -60,7 +59,13 @@ func NewClient(httpClient *http.Client) *Client {
 		httpClient.Transport = &interTransport{transport: httpClient.Transport}
 	}
 
-	return &Client{client: httpClient, UserAgent: userAgent}
+	cl := &Client{
+		client:  httpClient,
+		Headers: map[string]string{},
+	}
+	cl.Headers["User-Agent"] = userAgent
+
+	return cl
 }
 
 func New(httpClient *http.Client, opts ...ClientOpt) (*Client, error) {
@@ -88,14 +93,14 @@ func WithBaseURL(bu string) ClientOpt {
 
 func WithUserAgent(ua string) ClientOpt {
 	return func(c *Client) error {
-		c.UserAgent = ua
+		c.Headers["User-Agent"] = ua
 		return nil
 	}
 }
 
 func WithAuthorization(auth string) ClientOpt {
 	return func(c *Client) error {
-		c.Authorization = auth
+		c.Headers["Authorization"] = auth
 		return nil
 	}
 }
@@ -112,7 +117,11 @@ func WithInterceptor(inter Interceptor) ClientOpt {
 }
 
 func (c *Client) SetAuthorization(auth string) {
-	c.Authorization = auth
+	c.Headers["Authorization"] = auth
+}
+
+func (c *Client) SetHeader(key, value string) {
+	c.Headers[key] = value
 }
 
 func (c *Client) AddInterceptor(inter Interceptor) error {
@@ -171,12 +180,10 @@ func (c *Client) NewRequest(method, urlStr string, body interface{}) (*http.Requ
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if c.UserAgent != "" {
-		req.Header.Set("User-Agent", c.UserAgent)
+	for k, v := range c.Headers {
+		req.Header.Set(k, v)
 	}
-	if c.Authorization != "" {
-		req.Header.Set("Authorization", c.Authorization)
-	}
+
 	return req, nil
 }
 
