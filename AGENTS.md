@@ -8,7 +8,7 @@ HTTP client library for Go with interceptor/middleware support.
 
 - **Module**: `github.com/germangorelkin/http-client`
 - **Package**: `http_client`
-- **Go Version**: 1.20+
+- **Go Version**: 1.24+
 - **Documentation**: See [specs/spec.md](specs/spec.md) for architecture and design details
 
 ## Build & Test Commands
@@ -248,7 +248,7 @@ When implementing new features or fixes:
 
 GitHub Actions runs on push/PR to master:
 - Platforms: ubuntu, macos, windows
-- Go version: 1.16 (CI) / 1.20 (module)
+- Go version: 1.24 (CI) / 1.24 (module)
 - Steps: golangci-lint, test, build
 
 ## Key Patterns in This Codebase
