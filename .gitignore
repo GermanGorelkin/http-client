@@ -20,3 +20,5 @@ bin/*
 
 # Environment Variables
 .env
+
+.DS_Store
