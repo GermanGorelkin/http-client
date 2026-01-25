@@ -15,7 +15,7 @@ const (
 	userAgent = "http-client"
 )
 
-func Get(url string, out interface{}) error {
+func Get(url string, out any) error {
 	c := NewClient(nil)
 	req, err := c.NewRequest("GET", url, nil)
 	if err != nil {
@@ -28,7 +28,7 @@ func Get(url string, out interface{}) error {
 	return nil
 }
 
-func Post(url string, in, out interface{}) error {
+func Post(url string, in, out any) error {
 	c := NewClient(nil)
 	req, err := c.NewRequest("POST", url, in)
 	if err != nil {
@@ -133,7 +133,7 @@ func (c *Client) AddInterceptor(inter Interceptor) error {
 	return nil
 }
 
-func (c *Client) Get(url string, out interface{}) error {
+func (c *Client) Get(url string, out any) error {
 	req, err := c.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
@@ -145,7 +145,7 @@ func (c *Client) Get(url string, out interface{}) error {
 	return nil
 }
 
-func (c *Client) Post(url string, in, out interface{}) error {
+func (c *Client) Post(url string, in, out any) error {
 	req, err := c.NewRequest("POST", url, in)
 	if err != nil {
 		return err
@@ -157,7 +157,7 @@ func (c *Client) Post(url string, in, out interface{}) error {
 	return nil
 }
 
-func (c *Client) NewRequest(method, urlStr string, body interface{}) (*http.Request, error) {
+func (c *Client) NewRequest(method, urlStr string, body any) (*http.Request, error) {
 	u, err := c.parseURL(urlStr)
 	if err != nil {
 		return nil, err
@@ -194,7 +194,7 @@ func (c *Client) parseURL(urlStr string) (*url.URL, error) {
 	return c.BaseURL.Parse(urlStr)
 }
 
-func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
+func (c *Client) Do(ctx context.Context, req *http.Request, v any) (*http.Response, error) {
 	resp, err := DoRequestWithClient(ctx, c.client, req)
 	if err != nil {
 		return nil, err
