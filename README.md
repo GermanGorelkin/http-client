@@ -5,6 +5,7 @@ A convenient HTTP client library for Go with interceptor/middleware support, JSO
 ## Features
 
 - **Interceptor/Middleware Support**: Chain request/response handlers for logging, retries, authentication, etc.
+- **Built-in Retry Interceptor**: Automatic retry for transient errors with exponential backoff and jitter
 - **Functional Options Pattern**: Clean configuration with `With*` functions
 - **JSON Serialization**: Automatic JSON encoding/decoding for request/response bodies
 - **Error Handling**: Custom error types for HTTP errors with response details
@@ -86,6 +87,7 @@ client, err := http_client.New(nil,
     http_client.WithBaseURL("https://api.example.com/v1"),
     http_client.WithUserAgent("my-app/1.0"),
     http_client.WithAuthorization("Bearer token123"),
+    http_client.WithInterceptor(http_client.DefaultRetryInterceptor()),
     http_client.WithInterceptor(http_client.DumpInterceptor),
 )
 if err != nil {
@@ -101,6 +103,16 @@ if err != nil {
 | `WithUserAgent` | Sets User-Agent header | `WithUserAgent("my-app/1.0")` |
 | `WithAuthorization` | Sets Authorization header | `WithAuthorization("Bearer token")` |
 | `WithInterceptor` | Adds an interceptor to the chain | `WithInterceptor(myInterceptor)` |
+
+### RetryInterceptor Configuration Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `WithMaxRetries` | Maximum retry attempts | 3 |
+| `WithBackoff` | Base and maximum delay for exponential backoff | 100ms base, 1s max |
+| `WithRetryOnStatus` | HTTP status codes that trigger retry | [408, 429, 500, 502, 503, 504] |
+| `WithRetryMethods` | HTTP methods safe to retry | ["GET", "HEAD", "PUT", "DELETE", "OPTIONS"] |
+| `WithRetryOnError` | Custom function to determine retryable errors | Network errors and context deadline |
 
 ### Runtime Configuration
 
@@ -139,6 +151,35 @@ client, err := http_client.New(nil,
 )
 ```
 
+#### RetryInterceptor
+Automatically retries requests on transient errors with exponential backoff:
+
+```go
+// Default retry interceptor (3 retries, exponential backoff)
+client, err := http_client.New(nil,
+    http_client.WithInterceptor(http_client.DefaultRetryInterceptor()),
+)
+
+// Custom retry configuration
+retryInterceptor := http_client.NewRetryInterceptor(
+    http_client.WithMaxRetries(5),
+    http_client.WithBackoff(100*time.Millisecond, 2*time.Second),
+    http_client.WithRetryOnStatus([]int{408, 429, 500, 502, 503, 504}),
+    http_client.WithRetryMethods([]string{"GET", "HEAD", "PUT", "DELETE", "OPTIONS"}),
+)
+
+client, err := http_client.New(nil,
+    http_client.WithInterceptor(retryInterceptor),
+)
+```
+
+**Default Retry Behavior:**
+- **Max retries**: 3 attempts
+- **Backoff**: Exponential with jitter (100ms, 200ms, 400ms)
+- **Retry on status codes**: 408, 429, 500, 502, 503, 504
+- **Retry on errors**: Network errors and context deadline exceeded
+- **Safe methods**: GET, HEAD, PUT, DELETE, OPTIONS (POST, PATCH are not retried)
+
 ### Creating Custom Interceptors
 
 ```go
@@ -174,23 +215,31 @@ client, err := http_client.New(nil,
 ### Interceptor Chain Example
 
 ```go
-func RetryInterceptor(maxRetries int) http_client.Interceptor {
+// Example of a custom metrics interceptor
+func MetricsInterceptor(metricsClient *MetricsClient) http_client.Interceptor {
     return func(req *http.Request, handler http_client.Handler) (*http.Response, error) {
-        var resp *http.Response
-        var err error
+        start := time.Now()
         
-        for i := 0; i < maxRetries; i++ {
-            resp, err = handler(req)
-            if err == nil && resp.StatusCode < 500 {
-                return resp, nil
-            }
-            if i < maxRetries-1 {
-                time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
-            }
+        resp, err := handler(req)
+        
+        duration := time.Since(start)
+        statusCode := 0
+        if resp != nil {
+            statusCode = resp.StatusCode
         }
+        
+        metricsClient.RecordRequest(req.Method, req.URL.Path, statusCode, duration, err)
+        
         return resp, err
     }
 }
+
+// Usage with built-in and custom interceptors
+client, err := http_client.New(nil,
+    http_client.WithInterceptor(http_client.DefaultRetryInterceptor()),
+    http_client.WithInterceptor(MetricsInterceptor(metrics)),
+    http_client.WithInterceptor(http_client.DumpInterceptor),
+)
 ```
 
 ## Error Handling
@@ -391,6 +440,8 @@ func GetUser(id string) (*User, error) {
 - `Post(url string, in, out any) error` - Simple POST request
 - `DoRequestWithClient(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error)` - Low-level request execution
 - `CheckResponse(r *http.Response) error` - Check HTTP response status
+- `DefaultRetryInterceptor() Interceptor` - Retry interceptor with default configuration
+- `NewRetryInterceptor(opts ...RetryOpt) Interceptor` - Configurable retry interceptor
 
 ### Client Methods
 
@@ -411,6 +462,16 @@ func GetUser(id string) (*User, error) {
 - `type Handler func(*http.Request) (*http.Response, error)` - Request handler
 - `type Interceptor func(*http.Request, Handler) (*http.Response, error)` - Middleware
 - `type ErrorResponse struct` - HTTP error response
+- `type RetryConfig struct` - Configuration for retry behavior
+- `type RetryOpt func(*RetryConfig)` - Functional option for retry configuration
+
+### Retry Configuration Functions
+
+- `WithMaxRetries(n int) RetryOpt` - Set maximum retry attempts
+- `WithBackoff(base, max time.Duration) RetryOpt` - Set exponential backoff delays
+- `WithRetryOnStatus(codes []int) RetryOpt` - Set HTTP status codes that trigger retry
+- `WithRetryMethods(methods []string) RetryOpt` - Set HTTP methods safe to retry
+- `WithRetryOnError(fn func(error) bool) RetryOpt` - Set custom error retry logic
 
 ## Contributing
 
@@ -448,6 +509,14 @@ go test -race ./...
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Changelog
+
+### v0.6.0
+- **Added RetryInterceptor**: Automatic retry for transient errors with exponential backoff
+  - `DefaultRetryInterceptor()` with sensible defaults
+  - `NewRetryInterceptor(opts ...RetryOpt)` for custom configuration
+  - Configurable retry count, backoff, status codes, and methods
+  - Jitter added to prevent thundering herd
+  - Safe request cloning for retry attempts
 
 ### v0.5.0
 - Added interceptor/middleware support

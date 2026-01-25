@@ -86,6 +86,24 @@ type ErrorResponse struct {
 
 - `DumpInterceptor` - Logs request/response dumps for debugging
 - `ResponseInterceptor` - Replaces NaN with null in JSON responses
+- `DefaultRetryInterceptor()` - Retry interceptor with sensible defaults for transient errors
+- `NewRetryInterceptor(opts ...RetryOpt)` - Configurable retry interceptor
+
+#### RetryInterceptor Configuration Options
+
+- `WithMaxRetries(n int)` - Set maximum retry attempts (default: 3)
+- `WithBackoff(base, max time.Duration)` - Set exponential backoff delays (default: 100ms base, 1s max)
+- `WithRetryOnStatus(codes []int)` - Set HTTP status codes that trigger retry (default: 408, 429, 500, 502, 503, 504)
+- `WithRetryMethods(methods []string)` - Set HTTP methods safe to retry (default: GET, HEAD, PUT, DELETE, OPTIONS)
+- `WithRetryOnError(fn func(error) bool)` - Set custom error retry logic
+
+#### Default Retry Behavior
+
+- **Max retries**: 3 attempts
+- **Backoff**: Exponential with jitter (100ms, 200ms, 400ms)
+- **Retry on status codes**: 408, 429, 500, 502, 503, 504
+- **Retry on errors**: Network errors (`net.Error.Temporary()`)
+- **Safe methods**: GET, HEAD, PUT, DELETE, OPTIONS (POST, PATCH are not retried)
 
 ## Request/Response Flow
 
@@ -149,9 +167,9 @@ go test -cover ./...
 
 ## Future Considerations
 
-- Add retry interceptor
 - Add circuit breaker support
 - Add request/response logging levels
 - Add timeout configuration options
 - Add connection pooling configuration
 - Support for non-JSON content types
+- Add support for `Retry-After` header (429/503 responses)

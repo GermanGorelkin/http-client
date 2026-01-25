@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -18,7 +17,7 @@ import (
 
 func TestClient_Post(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b, _ := ioutil.ReadAll(r.Body)
+		b, _ := io.ReadAll(r.Body)
 		fmt.Fprintln(w, string(b))
 	}))
 	defer ts.Close()
@@ -123,7 +122,7 @@ func TestCheckResponse(t *testing.T) {
 	t.Run("status 400", func(t *testing.T) {
 		res := &http.Response{
 			StatusCode: 400,
-			Body:       ioutil.NopCloser(bytes.NewBufferString("test msg")),
+			Body:       io.NopCloser(bytes.NewBufferString("test msg")),
 		}
 		err := CheckResponse(res)
 		assert.NotNil(t, err)
