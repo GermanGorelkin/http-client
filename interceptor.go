@@ -8,9 +8,13 @@ import (
 	"net/http/httputil"
 )
 
+// Handler is a function that processes an HTTP request and returns a response.
 type Handler func(*http.Request) (*http.Response, error)
+
+// Interceptor is a middleware function that can intercept and modify HTTP requests and responses.
 type Interceptor func(*http.Request, Handler) (*http.Response, error)
 
+// DefaultInterceptor is a no-op interceptor that simply passes the request to the handler.
 var DefaultInterceptor Interceptor = func(req *http.Request, handler Handler) (*http.Response, error) {
 	return handler(req)
 }
@@ -21,11 +25,13 @@ type interTransport struct {
 	unitedInterceptor Interceptor
 }
 
+// AddInterceptor adds an interceptor to the transport.
 func (t *interTransport) AddInterceptor(inter Interceptor) {
 	t.interceptors = append(t.interceptors, inter)
 	t.unitedInterceptor = uniteInterceptors(t.interceptors)
 }
 
+// RoundTrip executes a single HTTP transaction, applying interceptors if present.
 func (t *interTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if t.unitedInterceptor == nil {
 		return t.transport.RoundTrip(r)
