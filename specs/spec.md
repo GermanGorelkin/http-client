@@ -2,7 +2,7 @@
 
 ## Overview
 
-A Go library providing a convenient HTTP client with interceptor/middleware support for making HTTP requests with JSON serialization.
+A Go library providing a convenient HTTP client with interceptor/middleware support for making HTTP requests with JSON serialization and multipart file uploads.
 
 ## Architecture
 
@@ -27,6 +27,7 @@ A Go library providing a convenient HTTP client with interceptor/middleware supp
 | `Interceptor` | Middleware function `func(*http.Request, Handler) (*http.Response, error)` |
 | `interTransport` | Custom http.RoundTripper that chains interceptors |
 | `ErrorResponse` | Custom error type for non-2xx HTTP responses |
+| `MultipartForm` | Multipart form data container for file uploads |
 
 ### Design Patterns
 
@@ -69,8 +70,10 @@ type ErrorResponse struct {
 - `New(httpClient *http.Client, opts ...ClientOpt) (*Client, error)` - Create configured client
 - `(*Client) Get(url string, out interface{}) error` - GET with JSON decode
 - `(*Client) Post(url string, in, out interface{}) error` - POST with JSON encode/decode
+- `(*Client) PostMultipart(url string, form *MultipartForm, out interface{}) error` - POST with multipart form data
 - `(*Client) Do(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error)` - Execute request
-- `(*Client) NewRequest(method, urlStr string, body interface{}) (*http.Request, error)` - Build request
+- `(*Client) NewRequest(method, urlStr string, body interface{}) (*http.Request, error)` - Build JSON request
+- `(*Client) NewMultipartRequest(method, urlStr string, form *MultipartForm) (*http.Request, error)` - Build multipart request
 - `(*Client) AddInterceptor(inter Interceptor) error` - Add middleware
 - `(*Client) SetHeader(key, value string)` - Set default header
 - `(*Client) SetAuthorization(auth string)` - Set auth header
@@ -81,6 +84,12 @@ type ErrorResponse struct {
 - `WithUserAgent(ua string) ClientOpt` - Set User-Agent header
 - `WithAuthorization(auth string) ClientOpt` - Set Authorization header
 - `WithInterceptor(inter Interceptor) ClientOpt` - Add interceptor
+
+### Multipart Form Methods
+
+- `NewMultipartForm() *MultipartForm` - Create empty multipart form
+- `(*MultipartForm) AddField(name, value string)` - Add text field (multiple calls for same name supported)
+- `(*MultipartForm) AddFile(fieldName, fileName string, reader io.Reader)` - Add file from io.Reader
 
 ### Built-in Interceptors
 
@@ -173,3 +182,6 @@ go test -cover ./...
 - Add connection pooling configuration
 - Support for non-JSON content types
 - Add support for `Retry-After` header (429/503 responses)
+- Streaming multipart uploads for large files (using io.Pipe to avoid buffering entire files in memory)
+- Multipart form validation and error handling improvements
+- Support for multipart/form-data with different content types (not just files)

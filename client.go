@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 )
@@ -13,6 +14,79 @@ import (
 const (
 	userAgent = "http-client"
 )
+
+// MultipartForm holds multipart form data
+type MultipartForm struct {
+	fields map[string][]string
+	files  []multipartFile
+}
+
+type multipartFile struct {
+	fieldName string
+	fileName  string
+	reader    io.Reader
+}
+
+// NewMultipartForm creates an empty multipart form
+func NewMultipartForm() *MultipartForm {
+	return &MultipartForm{
+		fields: make(map[string][]string),
+		files:  make([]multipartFile, 0),
+	}
+}
+
+// AddField adds a text field to the form (can be called multiple times for same name)
+// Note: name and value should not be empty strings.
+func (m *MultipartForm) AddField(name, value string) {
+	m.fields[name] = append(m.fields[name], value)
+}
+
+// AddFile adds a file to the form from an io.Reader.
+// Note: fieldName and fileName should not be empty strings, and reader should not be nil.
+// The entire file content will be buffered in memory when building the multipart body.
+func (m *MultipartForm) AddFile(fieldName, fileName string, reader io.Reader) {
+	m.files = append(m.files, multipartFile{
+		fieldName: fieldName,
+		fileName:  fileName,
+		reader:    reader,
+	})
+}
+
+// buildMultipartBody creates multipart body and returns content type with boundary.
+// Note: This method buffers the entire form data in memory. For large files,
+// consider using streaming alternatives or breaking uploads into chunks.
+// The returned io.Reader is backed by an in-memory buffer.
+func (m *MultipartForm) buildMultipartBody() (io.Reader, string, error) {
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// Add fields
+	for name, values := range m.fields {
+		for _, value := range values {
+			if err := writer.WriteField(name, value); err != nil {
+				return nil, "", err
+			}
+		}
+	}
+
+	// Add files
+	for _, file := range m.files {
+		part, err := writer.CreateFormFile(file.fieldName, file.fileName)
+		if err != nil {
+			return nil, "", err
+		}
+		if _, err := io.Copy(part, file.reader); err != nil {
+			return nil, "", err
+		}
+	}
+
+	// Close writer to finalize boundary
+	if err := writer.Close(); err != nil {
+		return nil, "", err
+	}
+
+	return &buf, writer.FormDataContentType(), nil
+}
 
 // Get sends a GET request to the specified URL and decodes the response into out.
 func Get(url string, out any) error {
@@ -172,6 +246,19 @@ func (c *Client) Post(url string, in, out any) error {
 	return nil
 }
 
+// PostMultipart sends a POST multipart request and decodes the response into out.
+func (c *Client) PostMultipart(url string, form *MultipartForm, out any) error {
+	req, err := c.NewMultipartRequest("POST", url, form)
+	if err != nil {
+		return err
+	}
+	_, err = c.Do(context.Background(), req, out)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // NewRequest creates a new HTTP request with the specified method, URL, and body.
 func (c *Client) NewRequest(method, urlStr string, body any) (*http.Request, error) {
 	u, err := c.parseURL(urlStr)
@@ -196,6 +283,31 @@ func (c *Client) NewRequest(method, urlStr string, body any) (*http.Request, err
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	for k, v := range c.Headers {
+		req.Header.Set(k, v)
+	}
+
+	return req, nil
+}
+
+// NewMultipartRequest creates a new multipart HTTP request with the specified form data.
+func (c *Client) NewMultipartRequest(method, urlStr string, form *MultipartForm) (*http.Request, error) {
+	u, err := c.parseURL(urlStr)
+	if err != nil {
+		return nil, err
+	}
+
+	body, contentType, err := form.buildMultipartBody()
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(method, u.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", contentType)
 	for k, v := range c.Headers {
 		req.Header.Set(k, v)
 	}
