@@ -1,6 +1,6 @@
 # HTTP Client Library for Go
 
-A convenient HTTP client library for Go with interceptor/middleware support, JSON serialization, and functional configuration options.
+A convenient HTTP client library for Go with interceptor/middleware support, JSON serialization, multipart uploads, and functional configuration options.
 
 ## Features
 
@@ -8,6 +8,7 @@ A convenient HTTP client library for Go with interceptor/middleware support, JSO
 - **Built-in Retry Interceptor**: Automatic retry for transient errors with exponential backoff and jitter
 - **Functional Options Pattern**: Clean configuration with `With*` functions
 - **JSON Serialization**: Automatic JSON encoding/decoding for request/response bodies
+- **Multipart File Upload**: Support for multipart/form-data file uploads
 - **Error Handling**: Custom error types for HTTP errors with response details
 - **Base URL Support**: Set a base URL for all relative requests
 - **Header Management**: Default headers for all requests
@@ -78,6 +79,52 @@ if err != nil {
 fmt.Printf("Created user ID: %s\n", createdUser.ID)
 ```
 
+### Multipart File Upload
+
+```go
+// Create a multipart form
+form := http_client.NewMultipartForm()
+form.AddField("description", "Profile picture")
+form.AddField("user_id", "123")
+
+// Add file from io.Reader (e.g., from os.Open, bytes.NewReader, etc.)
+file, err := os.Open("profile.jpg")
+if err != nil {
+    log.Fatal(err)
+}
+defer file.Close()
+
+form.AddFile("attachment", "profile.jpg", file)
+
+// Upload with multipart POST
+var resp struct {
+    Success bool   `json:"success"`
+    URL     string `json:"url"`
+}
+
+err = client.PostMultipart("https://api.example.com/upload", form, &resp)
+if err != nil {
+    fmt.Printf("Error: %v\n", err)
+    return
+}
+
+fmt.Printf("Upload successful: %s\n", resp.URL)
+```
+
+### Multiple Files Upload
+
+```go
+form := http_client.NewMultipartForm()
+form.AddField("album", "vacation")
+
+// Add multiple files under same field name
+form.AddFile("photos", "photo1.jpg", file1)
+form.AddFile("photos", "photo2.jpg", file2)
+form.AddFile("photos", "photo3.jpg", file3)
+
+err := client.PostMultipart("https://api.example.com/upload", form, nil)
+```
+
 ## Configuration Options
 
 ### Creating a Configured Client
@@ -104,6 +151,21 @@ if err != nil {
 | `WithAuthorization` | Sets Authorization header | `WithAuthorization("Bearer token")` |
 | `WithInterceptor` | Adds an interceptor to the chain | `WithInterceptor(myInterceptor)` |
 
+### MultipartForm Methods
+
+| Method | Description | Example |
+|--------|-------------|---------|
+| `NewMultipartForm()` | Creates empty multipart form | `form := NewMultipartForm()` |
+| `AddField(name, value)` | Adds text field (can be called multiple times for same name) | `form.AddField("description", "my file")` |
+| `AddFile(fieldName, fileName, reader)` | Adds file from `io.Reader` | `form.AddFile("file", "photo.jpg", reader)` |
+
+### Client Methods for Multipart
+
+| Method | Description | Example |
+|--------|-------------|---------|
+| `NewMultipartRequest(method, url, form)` | Creates multipart HTTP request | `req, err := client.NewMultipartRequest("POST", "/upload", form)` |
+| `PostMultipart(url, form, out)` | Sends multipart POST and decodes response | `err := client.PostMultipart("/upload", form, &resp)` |
+
 ### RetryInterceptor Configuration Options
 
 | Option | Description | Default |
@@ -125,6 +187,34 @@ client.SetAuthorization("Bearer new-token")
 
 // Add interceptors
 client.AddInterceptor(myInterceptor)
+
+// Create multipart form
+form := http_client.NewMultipartForm()
+form.AddField("key", "value")
+// ... add files
+```
+
+### Creating Multipart Requests Manually
+
+```go
+// For more control, create request manually
+form := http_client.NewMultipartForm()
+form.AddField("description", "document")
+form.AddFile("file", "document.pdf", fileReader)
+
+req, err := client.NewMultipartRequest("POST", "/upload", form)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Add custom headers to multipart request
+req.Header.Set("X-Custom-Header", "value")
+
+// Execute with context
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+
+resp, err := client.Do(ctx, req, &response)
 ```
 
 ## Interceptors
@@ -414,7 +504,53 @@ if err != nil {
 // Response body is automatically closed by client.Do()
 ```
 
-### 3. Validate Inputs
+### 3. Multipart Upload Memory Considerations
+
+```go
+// For small files (<10MB), use standard multipart upload:
+form := http_client.NewMultipartForm()
+form.AddField("description", "small file")
+form.AddFile("file", "document.pdf", fileReader)
+err := client.PostMultipart("/upload", form, &resp)
+
+// For large files, consider:
+// 1. Chunking the file into smaller parts
+// 2. Using streaming uploads (future feature)
+// 3. Compressing before upload
+// 4. Using direct file upload APIs if available
+
+// Current implementation buffers entire form in memory.
+// Monitor memory usage when uploading multiple large files.
+
+// Future streaming API example (planned):
+// ```go
+// // Streaming upload for large files without buffering
+// err := client.PostMultipartStream("/upload", func(w *multipart.Writer) error {
+//     // Add fields
+//     if err := w.WriteField("description", "large file"); err != nil {
+//         return err
+//     }
+//     
+//     // Stream file directly
+//     part, err := w.CreateFormFile("file", "large-video.mp4")
+//     if err != nil {
+//         return err
+//     }
+//     
+//     // Stream from file without buffering entire content
+//     file, err := os.Open("large-video.mp4")
+//     if err != nil {
+//         return err
+//     }
+//     defer file.Close()
+//     
+//     _, err = io.Copy(part, file)
+//     return err
+// }, &resp)
+// ```
+```
+
+### 4. Validate Inputs
 
 ```go
 func GetUser(id string) (*User, error) {
